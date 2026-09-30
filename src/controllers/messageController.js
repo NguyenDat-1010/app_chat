@@ -36,6 +36,12 @@ const createMessage = async (req, res) => {
             conversation: conversation,
             content
         });
+        //Cap nhat thoi gian update cua conversation
+        await Conversation.findByIdAndUpdate(conversationId,
+            {
+                updatedAt: new Date()
+            }
+        );
         res.status(200).json({
             message: 'Gui tin nhan thanh cong',
             data: message
