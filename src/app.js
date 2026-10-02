@@ -10,6 +10,8 @@ require('dotenv').config();
 const authRoutes = require('./routes/authRoutes.js');
 const messageRoutes = require('./routes/messageRoutes.js');
 const conversationRoutes = require('./routes/conversationRoutes.js');
+const userRoutes = require('./routes/userRoutes.js');
+const errorMiddleware = require('./middleware/errorMiddleware.js');
 
 app.use(express.json());
 
@@ -25,6 +27,9 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/conversation', conversationRoutes);
 app.use('/api/message', messageRoutes);
+app.use('/api/user', userRoutes);
+
+app.use(errorMiddleware);
 
 
 
