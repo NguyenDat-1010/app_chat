@@ -1,7 +1,7 @@
-const { default: mongoose } = require('mongoose');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 
-const searchUser = async (req, res) => {
+const searchUser = async (req, res, next) => {
     try {
         const { search } = req.query;
         if (!search) {
@@ -36,16 +36,12 @@ const searchUser = async (req, res) => {
             message: 'Tim user thanh cong',
             data: user
         });
-    } catch (err) {
-        console.error('Search user error:', err);
-        res.status(500).json({
-            message: 'Server error',
-            error: err.message
-        });
+    } catch (error) {
+        next(error);
     }
 };
 
-const getUserbyId = async (req, res) => {
+const getUserbyId = async (req, res, next) => {
     try {
         const { userId } = req.params;
         //kiem tra xem co phai object hop le trong mongoose khong
@@ -65,11 +61,7 @@ const getUserbyId = async (req, res) => {
             data: user
         });
     } catch (error) {
-        console.error('Get user error:', error);
-        res.status(500).json({
-            message: 'Server error',
-            error: error.message
-        });
+        next(error);
     }
 };
 

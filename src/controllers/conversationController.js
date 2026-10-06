@@ -1,10 +1,20 @@
 const Conversation = require('../models/Conversation');
+const Message = require('../models/Message');
 const { findOne } = require('../models/User');
+const mongoose = require('mongoose');
 
 
-const createConversation = async (req, res) => {
+
+const createConversation = async (req, res, next) => {
     try {
         const { userId } = req.body;
+        //kiem tra xem id co hop le hay khong
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({
+                message: 'Id khong hop le'
+            });
+        }
+
         //kiem tra user muon chat cung
 
         if (!userId) {
@@ -45,15 +55,12 @@ const createConversation = async (req, res) => {
             conversation
         });
 
-    } catch (err) {
-        res.status(500).json({
-            message: 'Server error',
-            error: err.message
-        });
+    } catch (error) {
+        next(error);
     }
 };
 
-const getMyConversation = async (req, res) => {
+const getMyConversation = async (req, res, next) => {
     try {
         const currentUserId = req.user.userId;
         const conversations = await Conversation.find({
@@ -61,17 +68,26 @@ const getMyConversation = async (req, res) => {
         })
             .populate('participants', 'username email avatar status')
             .sort({ updatedAt: -1 });
-
+        //lay conversation voi lastmessage
+        const conversationswithlastMessage = await Promise.all(
+            conversations.map(async (conversation) => {
+                const lastMessage = await Message.findOne({
+                    conversation: conversation._id
+                })
+                    .sort({ createdAt: -1 })
+                    .populate('sender', ' username avatar');
+                return {
+                    ...conversation.toObject(),
+                    lastMessage
+                };
+            })
+        );
         res.status(200).json({
-            message: 'Lay danh sach conversation thanh cong',
-            data: conversations
+            message: 'Lay danh sach conversation voi last message thanh cong',
+            data: conversationswithlastMessage
         });
-    } catch (err) {
-        console.error('Get conversation error:', err);
-        res.status(500).json({
-            message: 'Server error',
-            error: err.message
-        });
+    } catch (error) {
+        next(error);
     }
 }
 

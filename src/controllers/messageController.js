@@ -1,13 +1,20 @@
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
+const mongoose = require('mongoose');
 
-const createMessage = async (req, res) => {
+const createMessage = async (req, res, next) => {
     try {
         const { conversationId, content } = req.body;
         //kiem tra du lieu
         if (!conversationId || !content) {
             return res.status(400).json({
                 message: 'thieu conversation hoac content'
+            });
+        }
+        // kiem tra id co hop le hay khong
+        if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+            return res.status(400).json({
+                message: 'conversation Id khong hop le'
             });
         }
         //thong tin user dang dang nhap
@@ -47,17 +54,27 @@ const createMessage = async (req, res) => {
             data: message
         });
     } catch (error) {
-        console.error('Create message error', error);
-        res.status(500).json({
-            message: 'Server error',
-            error: error.message
-        });
+        next(error);
     }
 };
 
-const getMessage = async (req, res) => {
+const getMessage = async (req, res, next) => {
     try {
         const { conversationId } = req.params;
+        //kiem tra id xem co hop le hay khong
+        if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+            return res.status(400).json({
+                message: 'conversation Id khong hop le'
+            });
+        }
+        //lay page va limit từ query
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        //gioi han limit de tranh client yeu cau qua nhieu du lieu
+        const finalLimit = Math.min(limit, 100);
+        //tinh so message can bo qua
+        const skip = (page - 1) * finalLimit;
+        //Thong tin user dang dang nhap
         const currentUserId = req.user.userId;
         //tim conversation
         const conversation = await Conversation.findById(conversationId);
@@ -66,7 +83,7 @@ const getMessage = async (req, res) => {
                 message: 'khong tim thay conversation'
             });
         }
-        //kiem tra xem user co thuoc conversarion khong
+        //kiem tra xem user co thuoc conversation khong
         const isParticipant = conversation.participants.some(
             participant =>
                 participant.toString() === currentUserId.toString()
@@ -76,21 +93,29 @@ const getMessage = async (req, res) => {
                 message: 'Ban khong thuoc conversation nay'
             });
         }
-        //lay message
+        //dem tong so message
+        const totalMessage = await Message.countDocuments({
+            conversation: conversationId
+        });
+        //lay message theo pagnigation
         const message = await Message.find({
             conversation: conversationId
-        }).sort({ createdAt: 1 });
+        })
+            .sort({ createdAt: 1 })
+            .skip(skip)
+            .limit(finalLimit);
         res.status(200).json({
             message: 'LAy message thanh cong',
-            data: message
+            data: message,
+            pagnigation: {
+                page,
+                limit: finalLimit,
+                totalMessage,
+                totalPage: Math.ceil(totalMessage / finalLimit)
+            }
         });
-
     } catch (error) {
-        console.error('Get message error', error);
-        res.status(500).json({
-            message: 'Server error',
-            error: error.message
-        });
+        next(error);
     }
 };
 

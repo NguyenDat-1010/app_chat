@@ -3,7 +3,7 @@ const User = require('../models/User.js');
 const jwt = require('jsonwebtoken');
 
 
-const register = async (req, res) => {
+const register = async (req, res, next) => {
     try {
         const { username, email, password } = req.body;
 
@@ -43,12 +43,11 @@ const register = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Register errorr', error.message);
-        res.status(500).json({ message: 'server erorr' });
+        next(error);
     }
 };
 
-const login = async (req, res) => {
+const login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
         //kiem tra du lieu
@@ -88,13 +87,8 @@ const login = async (req, res) => {
 
 
     } catch (error) {
-        console.error('Login error :', error.message);
-
-        return res.status(500).json({
-            message: 'Server error'
-        });
+        next(error);
     }
-
 };
 
 
