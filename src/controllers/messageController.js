@@ -44,7 +44,7 @@ const createMessage = async (req, res, next) => {
         //tao message
         const message = await Message.create({
             sender: currentUserId,
-            conversation: conversation,
+            conversation: conversationId,
             content
         });
         //Cap nhat thoi gian update cua conversation
@@ -54,6 +54,8 @@ const createMessage = async (req, res, next) => {
             }
         );
         // goi emitnewMessage
+        //them sender uername va avatar vao message
+        await message.populate('sender', 'username avatar');
         emitnewMessage(req.app.get('io'), message);
         //tra du lieu
         res.status(200).json({
