@@ -4,6 +4,12 @@ const port = 4000;
 const morgan = require('morgan');
 const connectDB = require("./config/db.js");
 
+const http = require('http');
+
+
+//import socket
+const initSocket = require('./socket/initSocket');
+
 
 require('dotenv').config();
 
@@ -32,7 +38,14 @@ app.use('/api/user', userRoutes);
 app.use(errorMiddleware);
 
 
+const httpServer = http.createServer(app);
 
-app.listen(port, () => {
+//Khởi tạo socket
+const io = initSocket(httpServer);
+
+app.set('io', io);
+
+
+httpServer.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });

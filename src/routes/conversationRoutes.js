@@ -5,7 +5,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const routes = express.Router();
 
 
-routes.post('/', authMiddleware, createConversation);
+routes.post('/create', authMiddleware, createConversation);
 routes.get('/', authMiddleware, getMyConversation);
 
 module.exports = routes;

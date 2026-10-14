@@ -3,23 +3,24 @@ const Message = require('../models/Message');
 const { findOne } = require('../models/User');
 const mongoose = require('mongoose');
 
+//import emitterSocket from Socket
+const { joinusertoConversation } = require('../socket/emitterSocket.js');
+
 
 
 const createConversation = async (req, res, next) => {
     try {
         const { userId } = req.body;
+        //kiem tra user muon chat cung
+        if (!userId) {
+            return res.status(400).json({
+                message: 'Thieu userId'
+            });
+        }
         //kiem tra xem id co hop le hay khong
         if (!mongoose.Types.ObjectId.isValid(userId)) {
             return res.status(400).json({
                 message: 'Id khong hop le'
-            });
-        }
-
-        //kiem tra user muon chat cung
-
-        if (!userId) {
-            return res.status(400).json({
-                message: 'Thieu userId'
             });
         }
         //lay id cua nguoi hien tai
@@ -43,13 +44,14 @@ const createConversation = async (req, res, next) => {
             });
         }
         //neu chua ton tai thi tao moi  conservation
-
         const conversation = await Conversation.create({
             participants: [
                 currentUserId,
                 userId
             ]
         });
+        //join vao conversation ngay sau khi tao
+        joinusertoConversation(req.app.get('io'), [currentUserId, userId], conversation._id);
         res.status(200).json({
             message: 'tao conservation thanh cong',
             conversation

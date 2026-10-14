@@ -2,6 +2,10 @@ const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 const mongoose = require('mongoose');
 
+
+//import emitterSocket from Socket 
+const { emitnewMessage } = require('../socket/emitterSocket.js');
+
 const createMessage = async (req, res, next) => {
     try {
         const { conversationId, content } = req.body;
@@ -49,6 +53,9 @@ const createMessage = async (req, res, next) => {
                 updatedAt: new Date()
             }
         );
+        // goi emitnewMessage
+        emitnewMessage(req.app.get('io'), message);
+        //tra du lieu
         res.status(200).json({
             message: 'Gui tin nhan thanh cong',
             data: message
