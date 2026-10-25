@@ -8,8 +8,17 @@ const joinusertoConversation = (io, userIds, conversationId) => {
 
     });
 };
+const emitmessageRead = (io, conversationId, userId) => {
+    io.to(`conversation:${conversationId}`).emit('message:read', {
+        conversationId,
+        userId,
+        readAt: new Date()
+    });
+};
 
 module.exports = {
     emitnewMessage,
-    joinusertoConversation
+    joinusertoConversation,
+    emitmessageRead
+
 }

@@ -65,33 +65,37 @@ const createConversation = async (req, res, next) => {
 const getMyConversation = async (req, res, next) => {
     try {
         const currentUserId = req.user.userId;
+
         const conversations = await Conversation.find({
             participants: currentUserId
         })
             .populate('participants', 'username email avatar status')
             .sort({ updatedAt: -1 });
-        //lay conversation voi lastmessage
-        const conversationswithlastMessage = await Promise.all(
-            conversations.map(async (conversation) => {
-                const lastMessage = await Message.findOne({
-                    conversation: conversation._id
-                })
-                    .sort({ createdAt: -1 })
-                    .populate('sender', ' username avatar');
-                return {
-                    ...conversation.toObject(),
-                    lastMessage
-                };
+
+        const result = await Promise.all(
+            conversations.map(async (c) => {
+                const [unreadCount, lastMessage] = await Promise.all([
+                    Message.countDocuments({
+                        conversation: c._id,
+                        readBy: { $ne: currentUserId }
+                    }),
+                    Message.findOne({ conversation: c._id })
+                        .sort({ createdAt: -1 })
+                        .populate('sender', 'username avatar')
+                ]);
+
+                return { ...c.toObject(), unreadCount, lastMessage };
             })
         );
+
         res.status(200).json({
-            message: 'Lay danh sach conversation voi last message thanh cong',
-            data: conversationswithlastMessage
+            message: 'Lay danh sach conversation thanh cong',
+            data: result
         });
     } catch (error) {
         next(error);
     }
-}
+};
 
 
 

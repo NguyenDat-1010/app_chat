@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 
 
 //import emitterSocket from Socket 
-const { emitnewMessage } = require('../socket/emitterSocket.js');
+const { emitnewMessage, emitmessageRead } = require('../socket/emitterSocket.js');
 
 const createMessage = async (req, res, next) => {
     try {
@@ -45,7 +45,8 @@ const createMessage = async (req, res, next) => {
         const message = await Message.create({
             sender: currentUserId,
             conversation: conversationId,
-            content
+            content,
+            readBy: [currentUserId]
         });
         //Cap nhat thoi gian update cua conversation
         await Conversation.findByIdAndUpdate(conversationId,
@@ -127,8 +128,47 @@ const getMessage = async (req, res, next) => {
         next(error);
     }
 };
+const markasRead = async (req, res, next) => {
+    try {
+        const currentUserId = req.user.userId;
+        const { conversationId } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+            return res.status(400).json({
+                message: 'Conversation ID khong hop le'
+            });
+        }
+        const conversation = await Conversation.findById(conversationId);
+        if (!conversation) {
+            return res.status(404).json({
+                message: 'khong tim thay conversation'
+            });
+        }
+        //kiem tra xem co thuoc converasation hay không
+        const isMember = conversation.participants.some(
+            (p) => p.toString() === currentUserId
+        );
+        if (!isMember) {
+            return res.status(403).json({
+                message: 'Ban khong thuoc conversation nay'
+            });
+        }
+        const result = await Message.updateMany(
+            { conversation: conversationId, readBy: { $ne: currentUserId } },
+            { $addToSet: { readBy: currentUserId } }
+        );
+        // Chỉ báo realtime khi thật sự có tin được đánh dấu
+        if (result.modifiedCount > 0) {
+            emitmessageRead(req.app.get('io'), conversationId, currentUserId);
+        }
+        res.json({ updated: result.modifiedCount });
+    } catch (error) {
+        next(error);
+    }
+
+}
 
 module.exports = {
     createMessage,
-    getMessage
+    getMessage,
+    markasRead
 };

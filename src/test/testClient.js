@@ -11,3 +11,4 @@ socket.on('connect_error', (err) => console.log('Error:', err.message));
 
 socket.on('user:status', (data) => console.log('STATUS:', data));
 socket.on('message:new', (msg) => console.log('NEW MESSAGE:', msg));
+socket.on('message:read', (data) => console.log('READ:', data));
