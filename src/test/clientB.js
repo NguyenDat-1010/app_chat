@@ -1,13 +1,13 @@
 const { io } = require('socket.io-client');
+
 const token = process.argv[2];
-const socket = io('http://localhost:4000', {
-    auth: { token }
-});
+const socket = io('http://localhost:4000', { auth: { token } });
 
 socket.on('connect', () => {
-    console.log('Client connected:', socket.id);
+    console.log('Connected:', socket.id);
+    socket.emit('users:online', (list) => console.log('Dang online:', list));
+});
+socket.on('connect_error', (err) => console.log('Error:', err.message));
 
-});
-socket.on('message:new', (msg) => {
-    console.log('Data from server:', msg);
-});
+socket.on('user:status', (data) => console.log('STATUS:', data));
+socket.on('message:new', (msg) => console.log('NEW MESSAGE:', msg));
