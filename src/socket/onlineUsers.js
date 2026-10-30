@@ -26,8 +26,6 @@ const getcontactIds = async (userId) => {
 
 const broadcastStatus = async (io, userId, status, lastSeen) => {
     const contactIds = await getcontactIds(userId);
-    console.log('BROADCAST', status, 'cua', userId, '-> gui toi:', contactIds);
-
     contactIds.forEach((id) => {
         io.to(`user:${id}`).emit('user:status', { userId, status, lastSeen });
     });
