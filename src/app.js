@@ -1,7 +1,6 @@
 const express = require('express');
-const app = express();
-const port = 4000;
 const morgan = require('morgan');
+const cors = require('cors');
 const connectDB = require("./config/db.js");
 
 const http = require('http');
@@ -18,6 +17,10 @@ const messageRoutes = require('./routes/messageRoutes.js');
 const conversationRoutes = require('./routes/conversationRoutes.js');
 const userRoutes = require('./routes/userRoutes.js');
 const errorMiddleware = require('./middleware/errorMiddleware.js');
+
+const app = express();
+const port = process.env.PORT;
+app.use(cors({ origin: process.env.CLIENT_URL || '*' }));
 
 app.use(express.json());
 

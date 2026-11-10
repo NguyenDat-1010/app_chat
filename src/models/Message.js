@@ -1,6 +1,24 @@
 const mongoose = require('mongoose');
 const User = require('./User');
 const Conversation = require('./Conversation');
+const { url } = require('../config/cloudinary');
+
+
+const attachmentSchema = new mongoose.Schema(
+    {
+        url: { type: String, required: true },//link http
+        pulicId: { type: String, required: true },//id anh tren cloudi        na
+        resoureType: { type: String, required: true },//loai file
+        name: { type: String, required: true },
+        mimeType: { type: String, required: true },
+        size: { type: Number, required: true },
+        width: Number,
+        height: Number
+    },
+    {
+        _id: false
+    }
+);
 
 const messageSchema = new mongoose.Schema(
     {
@@ -16,8 +34,8 @@ const messageSchema = new mongoose.Schema(
         },
         content: {
             type: String,
-            required: true,
-            trim: true
+            trim: true,
+            default: ''
         },
         readBy: [
             {
@@ -25,7 +43,13 @@ const messageSchema = new mongoose.Schema(
                 ref: 'User'
 
             }
-        ]
+        ],
+        type: {
+            type: String,
+            enum: ['text', 'image', 'file'],
+            default: 'text'
+        },
+        attachments: [attachmentSchema]
     },
     {
         timestamps: true
