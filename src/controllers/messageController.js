@@ -3,16 +3,20 @@ const Conversation = require('../models/Conversation');
 const mongoose = require('mongoose');
 
 
-//import emitterSocket from Socket 
+
 const { emitnewMessage, emitmessageRead } = require('../socket/emitterSocket.js');
+const { uploadFiles, deleteFiles } = require('../services/storage.js');
 
 const createMessage = async (req, res, next) => {
+    let attachments = [];
     try {
-        const { conversationId, content } = req.body;
+        const { conversationId } = req.body;
+        const content = (req.body.content || '').trim();
+        const files = req.files || [];
         //kiem tra du lieu
-        if (!conversationId || !content) {
+        if (!conversationId || (!content && files.length === 0)) {
             return res.status(400).json({
-                message: 'thieu conversation hoac content'
+                message: 'thieu conversation hoac noi dung file'
             });
         }
         // kiem tra id co hop le hay khong
@@ -41,11 +45,22 @@ const createMessage = async (req, res, next) => {
                 message: 'Ban khong thuoc conversation nay'
             });
         }
+        //kiem tra xem co gui kem file khong
+        if (files.length > 0) {
+            const items = files.map((file) => ({ file, isImage: true }));
+            attachments = await uploadFiles(items);
+        }
+        let type = 'text';
+        if (attachments.length > 0) {
+            type = attachments.every((a) => a.resoureType === 'image') ? 'image' : 'file';
+        }
         //tao message
         const message = await Message.create({
             sender: currentUserId,
             conversation: conversationId,
             content,
+            type,
+            attachments,
             readBy: [currentUserId]
         });
         //Cap nhat thoi gian update cua conversation
@@ -64,6 +79,9 @@ const createMessage = async (req, res, next) => {
             data: message
         });
     } catch (error) {
+        if (attachments.length > 0) {
+            await deleteFiles(attachments);
+        }
         next(error);
     }
 };

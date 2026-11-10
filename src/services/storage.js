@@ -21,7 +21,7 @@ const deleteFiles = async (attachments) => {
     await Promise.allSettled(
         attachments.map((a) =>
             cloudinary.uploader.destroy(a.publicId, {
-                resource_type: a.resource_type
+                resource_type: a.resourceType
             })
         )
     );
@@ -34,12 +34,12 @@ const uploadFiles = async (items) => {
             const r = await uploadOne(file, isImage);
             uploaded.push({
                 url: r.secure_url,
-                publicId: r.publicId,
-                resource_type: r.resource_type,
+                publicId: r.public_id,
+                resourceType: r.resource_type,
                 name: file.originalname,
-                mimeType: file.mimeType,
+                mimeType: file.mimetype,
                 size: file.size,
-                with: r.with,
+                width: r.width,
                 height: r.height
             });
         }

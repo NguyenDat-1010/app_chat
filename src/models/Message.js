@@ -6,9 +6,9 @@ const { url } = require('../config/cloudinary');
 
 const attachmentSchema = new mongoose.Schema(
     {
-        url: { type: String, required: true },//link http
-        pulicId: { type: String, required: true },//id anh tren cloudi        na
-        resoureType: { type: String, required: true },//loai file
+        url: { type: String, required: true },
+        publicId: { type: String, required: true },
+        resourceType: { type: String, required: true },
         name: { type: String, required: true },
         mimeType: { type: String, required: true },
         size: { type: Number, required: true },
