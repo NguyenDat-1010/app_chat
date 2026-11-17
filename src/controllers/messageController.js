@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 
 const { emitnewMessage, emitmessageRead } = require('../socket/emitterSocket.js');
 const { uploadFiles, deleteFiles } = require('../services/storage.js');
+const { checkFile } = require('../untils/fileValidation.js');
 
 const createMessage = async (req, res, next) => {
     let attachments = [];
@@ -47,12 +48,16 @@ const createMessage = async (req, res, next) => {
         }
         //kiem tra xem co gui kem file khong
         if (files.length > 0) {
-            const items = files.map((file) => ({ file, isImage: true }));
+            const items = [];
+            for (const file of files) {
+                const { isImage } = await checkFile(file);
+                items.push({ file, isImage });
+            }
             attachments = await uploadFiles(items);
         }
         let type = 'text';
         if (attachments.length > 0) {
-            type = attachments.every((a) => a.resoureType === 'image') ? 'image' : 'file';
+            type = attachments.every((a) => a.resourceType === 'image') ? 'image' : 'file';
         }
         //tao message
         const message = await Message.create({
@@ -129,12 +134,14 @@ const getMessage = async (req, res, next) => {
         const message = await Message.find({
             conversation: conversationId
         })
-            .sort({ createdAt: 1 })
+            .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(finalLimit);
+            .limit(finalLimit)
+            .populate('sender', 'username avatar');
+        const chronologicalMessages = message.reverse();
         res.status(200).json({
             message: 'LAy message thanh cong',
-            data: message,
+            data: chronologicalMessages,
             pagnigation: {
                 page,
                 limit: finalLimit,

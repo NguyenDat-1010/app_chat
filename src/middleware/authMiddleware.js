@@ -24,9 +24,14 @@ const authMiddleware = (req, res, next) => {
         //cho tiep tuc di
         next();
     } catch (error) {
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({
+                message: 'Token het han',
+                code: 'TOKEN_EXPIRED'
+            });
+        }
         res.status(401).json({
             message: 'Token khong hop le',
-            error: error.message
         });
     }
 };
