@@ -26,13 +26,13 @@ const deleteFiles = async (attachments) => {
         )
     );
 };
-//upload nhieu file
+//upload nhieu file dong thoi (parallel upload)
 const uploadFiles = async (items) => {
     const uploaded = [];
     try {
-        for (const { file, isImage } of items) {
+        const uploadPromises = items.map(async ({ file, isImage }) => {
             const r = await uploadOne(file, isImage);
-            uploaded.push({
+            const fileInfo = {
                 url: r.secure_url,
                 publicId: r.public_id,
                 resourceType: r.resource_type,
@@ -41,11 +41,18 @@ const uploadFiles = async (items) => {
                 size: file.size,
                 width: r.width,
                 height: r.height
-            });
-        }
-        return uploaded;
+            };
+            uploaded.push(fileInfo);
+            return fileInfo;
+        });
+
+        const results = await Promise.all(uploadPromises);
+        return results;
     } catch (error) {
-        await deleteFiles(uploaded);
+        // Neu 1 file fail, Promise.all reject va don dep toan bo file da kip upload thanh cong
+        if (uploaded.length > 0) {
+            await deleteFiles(uploaded);
+        }
         throw error;
     }
 };

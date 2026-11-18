@@ -2,7 +2,6 @@ const Conversation = require('../models/Conversation.js');
 const User = require('../models/User.js');
 const onlineUsers = new Map();
 
-
 const getcontactIds = async (userId) => {
     try {
         const conversation = await Conversation.find({
@@ -34,4 +33,7 @@ const broadcastStatus = async (io, userId, status, lastSeen) => {
 
 
 
-module.exports = { onlineUsers, broadcastStatus, };
+module.exports = {
+    onlineUsers,
+    broadcastStatus
+};

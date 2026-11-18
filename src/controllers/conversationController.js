@@ -61,7 +61,7 @@ const createConversation = async (req, res, next) => {
         next(error);
     }
 };
-
+/*
 const getMyConversation = async (req, res, next) => {
     try {
         const currentUserId = req.user.userId;
@@ -96,8 +96,127 @@ const getMyConversation = async (req, res, next) => {
         next(error);
     }
 };
+*/
 
-
+const getMyConversation = async (req, res, next) => {
+    try {
+        const currentUserId = new mongoose.Types.ObjectId(req.user.userId);
+        const conversations = await Conversation.aggregate([
+            // 1. Chỉ lấy conversation của user hiện tại
+            {
+                $match: {
+                    participants: currentUserId
+                }
+            },
+            // Sắp xếp theo conversation mới cập nhật trước
+            {
+                $sort: { updatedAt: -1 }
+            },
+            // 2. Populate participants (thay cho .populate('participants', 'username email avatar status'))
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'participants',
+                    foreignField: '_id',
+                    as: 'participants',
+                    pipeline: [
+                        {
+                            $project: {
+                                username: 1,
+                                email: 1,
+                                avatar: 1,
+                                status: 1
+                            }
+                        }
+                    ]
+                }
+            },
+            // 3. Lấy tin nhắn cuối cùng (lastMessage) kèm thông tin sender
+            {
+                $lookup: {
+                    from: 'messages',
+                    let: { conversationId: '$_id' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: ['$conversation', '$$conversationId'] }
+                            }
+                        },
+                        { $sort: { createdAt: -1 } },
+                        { $limit: 1 },
+                        // Join để lấy thông tin sender của tin nhắn cuối
+                        {
+                            $lookup: {
+                                from: 'users',
+                                localField: 'sender',
+                                foreignField: '_id',
+                                as: 'sender',
+                                pipeline: [
+                                    {
+                                        $project: {
+                                            username: 1,
+                                            avatar: 1
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        // unwind biến sender từ mảng [sender] thành object sender
+                        {
+                            $unwind: {
+                                path: '$sender',
+                                preserveNullAndEmptyArrays: true
+                            }
+                        }
+                    ],
+                    as: 'lastMessage'
+                }
+            },
+            // 4. Đếm số tin nhắn chưa đọc (unreadCount)
+            {
+                $lookup: {
+                    from: 'messages',
+                    let: { conversationId: '$_id' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$conversation', '$$conversationId'] },
+                                        { $not: { $in: [currentUserId, '$readBy'] } }
+                                    ]
+                                }
+                            }
+                        },
+                        { $count: 'count' }
+                    ],
+                    as: 'unreadInfo'
+                }
+            },
+            // 5. Chuẩn hóa output trả về frontend (lastMessage thành object, unreadCount thành number)
+            {
+                $addFields: {
+                    lastMessage: { $arrayElemAt: ['$lastMessage', 0] },
+                    unreadCount: {
+                        $ifNull: [{ $arrayElemAt: ['$unreadInfo.count', 0] }, 0]
+                    }
+                }
+            },
+            // Bỏ field phụ unreadInfo
+            {
+                $project: {
+                    unreadInfo: 0
+                }
+            }
+        ]);
+        res.status(200).json({
+            message: 'Lay danh sach conversation thanh cong',
+            data: conversations
+        });
+    } catch (error) {
+        next(error);
+    }
+};
 
 module.exports = {
     createConversation,

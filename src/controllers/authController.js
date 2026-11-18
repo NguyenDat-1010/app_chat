@@ -3,7 +3,7 @@ const User = require('../models/User.js');
 const Refreshtoken = require('../models/Refreshtoken.js');
 const jwt = require('jsonwebtoken');
 
-const { hashToken, signaccessToken, issuerefreshToken } = require('../untils/token.js');
+const { hashToken, signaccessToken, issuerefreshToken } = require('../utils/token.js');
 
 
 const register = async (req, res, next) => {

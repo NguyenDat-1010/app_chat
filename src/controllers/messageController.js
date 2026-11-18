@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 
 const { emitnewMessage, emitmessageRead } = require('../socket/emitterSocket.js');
 const { uploadFiles, deleteFiles } = require('../services/storage.js');
-const { checkFile } = require('../untils/fileValidation.js');
+const { checkFile } = require('../utils/fileValidation.js');
 
 const createMessage = async (req, res, next) => {
     let attachments = [];
@@ -48,11 +48,12 @@ const createMessage = async (req, res, next) => {
         }
         //kiem tra xem co gui kem file khong
         if (files.length > 0) {
-            const items = [];
-            for (const file of files) {
-                const { isImage } = await checkFile(file);
-                items.push({ file, isImage });
-            }
+            const items = await Promise.all(
+                files.map(async (file) => {
+                    const { isImage } = await checkFile(file);
+                    return { file, isImage };
+                })
+            );
             attachments = await uploadFiles(items);
         }
         let type = 'text';
@@ -90,7 +91,7 @@ const createMessage = async (req, res, next) => {
         next(error);
     }
 };
-
+/*
 const getMessage = async (req, res, next) => {
     try {
         const { conversationId } = req.params;
@@ -147,6 +148,57 @@ const getMessage = async (req, res, next) => {
                 limit: finalLimit,
                 totalMessage,
                 totalPage: Math.ceil(totalMessage / finalLimit)
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};*/
+
+const getMessage = async (req, res, next) => {
+    try {
+        const { conversationId } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+            return res.status(400).json({
+                message: 'conversation Id khong hop le'
+            });
+        }
+        const limit = parseInt(req.query.limit) || 20;
+        const finalLimit = Math.min(Math.max(limit, 1), 100);
+        const { before } = req.query; // Thời điểm createdAt của tin nhắn cũ nhất trên client
+        const currentUserId = req.user.userId;
+        // 1. Kiểm tra conversation và quyền tham gia (chỉ query field participants để nhẹ DB)
+        const conversation = await Conversation.findOne({
+            _id: conversationId,
+            participants: currentUserId
+        }).select('_id');
+        if (!conversation) {
+            return res.status(403).json({
+                message: 'Conversation khong ton tai hoac ban khong co quyen truy cap'
+            });
+        }
+        // 2. Xây dựng bộ lọc query
+        const query = { conversation: conversationId };
+        if (before) {
+            query.createdAt = { $lt: new Date(before) };
+        }
+        // 3. Lấy thêm 1 bản ghi (+1) để biết phía trước còn tin nhắn nữa hay không (hasMore)
+        const messages = await Message.find(query)
+            .sort({ createdAt: -1 })
+            .limit(finalLimit + 1)
+            .populate('sender', 'username avatar');
+        const hasMore = messages.length > finalLimit;
+        if (hasMore) {
+            messages.pop(); // Bỏ phần tử thừa thứ 21 ra
+        }
+        // Đảo chiều để trả về từ cũ -> mới cho client hiển thị từ trên xuống dưới
+        const chronologicalMessages = messages.reverse();
+        res.status(200).json({
+            message: 'Lay message thanh cong',
+            data: chronologicalMessages,
+            pagination: {
+                hasMore,
+                nextCursor: chronologicalMessages.length > 0 ? chronologicalMessages[0].createdAt : null
             }
         });
     } catch (error) {
