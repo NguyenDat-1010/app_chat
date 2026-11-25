@@ -3,8 +3,9 @@ const Message = require('../models/Message');
 const { findOne } = require('../models/User');
 const mongoose = require('mongoose');
 
-//import emitterSocket from Socket
-const { joinusertoConversation } = require('../socket/emitterSocket.js');
+
+//import emitterSocket tu Socket
+const { joinusertoConversation, emitgroupCreated, emitmemberAdd, emitmemberRemoved, emitgroupUpdated } = require('../socket/emitterSocket.js');
 
 
 
@@ -61,42 +62,6 @@ const createConversation = async (req, res, next) => {
         next(error);
     }
 };
-/*
-const getMyConversation = async (req, res, next) => {
-    try {
-        const currentUserId = req.user.userId;
-
-        const conversations = await Conversation.find({
-            participants: currentUserId
-        })
-            .populate('participants', 'username email avatar status')
-            .sort({ updatedAt: -1 });
-
-        const result = await Promise.all(
-            conversations.map(async (c) => {
-                const [unreadCount, lastMessage] = await Promise.all([
-                    Message.countDocuments({
-                        conversation: c._id,
-                        readBy: { $ne: currentUserId }
-                    }),
-                    Message.findOne({ conversation: c._id })
-                        .sort({ createdAt: -1 })
-                        .populate('sender', 'username avatar')
-                ]);
-
-                return { ...c.toObject(), unreadCount, lastMessage };
-            })
-        );
-
-        res.status(200).json({
-            message: 'Lay danh sach conversation thanh cong',
-            data: result
-        });
-    } catch (error) {
-        next(error);
-    }
-};
-*/
 
 const getMyConversation = async (req, res, next) => {
     try {
@@ -218,7 +183,185 @@ const getMyConversation = async (req, res, next) => {
     }
 };
 
+const creatGroup = async (req, res, next) => {
+    try {
+        const { name, participants } = req.body;
+        const currentUserId = req.user.userId;
+        if (!name || !name.trim()) {
+            return res.status(400).json({
+                message: 'Khong duoc de trong ten nhom'
+            });
+        }
+        if (!participants || !Array.isArray(participants) || participants.length < 2) {
+            return res.status(400).json({
+                message: 'Nhom can it nhat 3 nguoi'
+            });
+        }
+        if (!participants.every((id) => mongoose.isValidObjectId(id))) {
+            return res.status(400).json({
+                message: 'danh sach chua id khong hop le'
+            });
+        }
+        //loai bo danh sach trung lap
+        const memberIds = Array.from(
+            new Set([currentUserId.toString(), ...participants.map(id => id.toString())])
+        );
+        //tao nhom
+        const groupConversation = await Conversation.create({
+            name: name.trim(),
+            isGroup: true,
+            admin: currentUserId,
+            participants: memberIds
+        });
+        await groupConversation.populate([
+            { path: 'participants', select: 'username email avatar status' },
+            { path: 'admin', select: 'username email avatar' }
+        ]);
+        //Đưa tat ca vao socket cua nhom 
+        joinusertoConversation(req.app.get('io'), memberIds, groupConversation._id);
+        emitgroupCreated(req.app.get('io'), memberIds, groupConversation);
+        res.status(200).json({
+            message: 'Tao nhom thanh cong',
+            conversation: groupConversation
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const addmembertoGroup = async (req, res, next) => {
+    try {
+        const currentUserId = req.user.userId;
+        const { memberIds } = req.body;//mang cac user muon them vao nhom chat
+        const { conversationId } = req.params;
+        if (!memberIds || !Array.isArray(memberIds) || memberIds.length === 0) {
+            return res.status(400).json({
+                message: 'Danh sach khong hop le'
+            });
+        }
+        const uniquememberIds = Array.from(new Set(memberIds.map(id => id.toString())));
+        const isValid = uniquememberIds.every(id => mongoose.Types.ObjectId.isValid(id));
+        if (!isValid) {
+            return res.status(400).json({ message: 'Có userId không hợp lệ' });
+        }
+        const conversation = await Conversation.findOne({
+            _id: conversationId,
+            isGroup: true
+        });
+        if (!conversation) {
+            return res.status(404).json({
+                message: 'khong tim thay nhom'
+            });
+        }
+        const isMember = conversation.participants.some(
+            p => p.toString() === currentUserId.toString()
+        );
+        if (!isMember) {
+            return res.status(403).json({
+                message: 'Ban khong co quyen them thanh vien vao nhom nay'
+            });
+        }
+        const newMember = uniquememberIds.filter(
+            id => !conversation.participants.some(p => p.toString() === id.toString())
+        );
+        if (newMember.length === 0) {
+            return res.status(400).json({
+                message: 'tat ca nguoi dung da o trong nhom'
+            });
+        }
+        conversation.participants.push(...newMember);
+        await conversation.save();
+        await conversation.populate([
+            { path: 'participants', select: 'username email avatar status' },
+            { path: 'admin', select: 'username email avatar' }
+        ]);
+        joinusertoConversation(req.app.get('io'), newMember, conversation._id);
+        emitmemberAdd(req.app.get('io'), newMember, conversation._id, conversation);
+        res.status(200).json({
+            message: 'Them thanh cong',
+            conversation
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const removememberfromGroup = async (req, res, next) => {
+    try {
+        const { conversationId } = req.params;
+        const { userIdToRemove } = req.body; // User bị xóa hoặc tự rời
+        const currentUserId = req.user.userId;
+        const conversation = await Conversation.findOne({
+            _id: conversationId,
+            isGroup: true
+        });
+        if (!conversation) {
+            return res.status(404).json({ message: 'Không tìm thấy nhóm' });
+        }
+        const isAdmin = conversation.admin.toString() === currentUserId.toString();
+        const isSelfLeaving = currentUserId.toString() === userIdToRemove.toString();
+        // Chỉ Admin mới được kick người khác; bản thân thì luôn có quyền tự rời
+        if (!isAdmin && !isSelfLeaving) {
+            return res.status(403).json({ message: 'Chỉ Admin mới có quyền xóa thành viên khác' });
+        }
+        // Loại bỏ user khỏi participants
+        conversation.participants = conversation.participants.filter(
+            p => p.toString() !== userIdToRemove.toString()
+        );
+        // Nếu admin tự rời nhóm: chuyển admin cho thành viên đầu tiên còn lại (nếu còn người)
+        if (isAdmin && isSelfLeaving && conversation.participants.length > 0) {
+            conversation.admin = conversation.participants[0];
+        }
+        await conversation.save();
+        emitmemberRemoved(req.app.get('io'), conversation._id, userIdToRemove, conversation);
+        res.status(200).json({
+            message: isSelfLeaving ? 'Đã rời nhóm thành công' : 'Đã xóa thành viên khỏi nhóm',
+            conversation
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const updateGroup = async (req, res, next) => {
+    try {
+        const { conversationId } = req.params;
+        const { name, avatar } = req.body;
+        const currentUserId = req.user.userId;
+        const conversation = await Conversation.findOne({
+            _id: conversationId,
+            isGroup: true
+        });
+        if (!conversation) {
+            return res.status(404).json({ message: 'Không tìm thấy nhóm' });
+        }
+        // Kiểm tra quyền: phải là thành viên nhóm
+        const isMember = conversation.participants.some(
+            p => p.toString() === currentUserId.toString()
+        );
+        if (!isMember) {
+            return res.status(403).json({ message: 'Bạn không phải thành viên nhóm' });
+        }
+        if (name) conversation.name = name.trim();
+        if (avatar) conversation.avatar = avatar;
+        await conversation.save();
+        emitgroupUpdated(req.app.get('io'), conversation._id, conversation);
+        res.status(200).json({
+            message: 'Cập nhật nhóm thành công',
+            conversation
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+
 module.exports = {
     createConversation,
-    getMyConversation
+    getMyConversation,
+    creatGroup,
+    addmembertoGroup,
+    removememberfromGroup,
+    updateGroup
 };

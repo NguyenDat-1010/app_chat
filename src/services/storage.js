@@ -57,5 +57,5 @@ const uploadFiles = async (items) => {
     }
 };
 
-module.exports = { uploadFiles, deleteFiles };
+module.exports = { uploadFiles, deleteFiles, uploadOne };
 

@@ -10,7 +10,23 @@ const conversationSchema = new mongoose.Schema(
                 required: true
             }
 
-        ]
+        ],
+        isGroup: {
+            type: Boolean,
+            default: false
+        },
+        name: {
+            type: String,
+            trim: true,
+            maxlength: 100
+        },
+        avatar: {
+            type: String
+        },
+        admin: {
+            type: mongoose.Schema.ObjectId,
+            ref: 'User'
+        }
     },
     {
         timestamps: true
