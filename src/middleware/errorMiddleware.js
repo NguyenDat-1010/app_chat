@@ -1,4 +1,6 @@
 const multer = require('multer');
+const AppError = require('../utils/appError');
+
 const errorMiddleware = (err, req, res, next) => {
     if (res.headersSent) {
         return next(err);
@@ -33,7 +35,8 @@ const errorMiddleware = (err, req, res, next) => {
         console.error('ERROR:', err);
     }
 
-    res.status(status).json({ message });
+    const details = err instanceof AppError ? err.details : undefined;
+    res.status(status).json({ ...details, message });
 };
 
-module.exports = errorMiddleware; 
+module.exports = errorMiddleware;

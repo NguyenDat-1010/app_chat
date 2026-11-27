@@ -28,11 +28,10 @@ const deleteFiles = async (attachments) => {
 };
 //upload nhieu file dong thoi (parallel upload)
 const uploadFiles = async (items) => {
-    const uploaded = [];
-    try {
-        const uploadPromises = items.map(async ({ file, isImage }) => {
+    const results = await Promise.allSettled(
+        items.map(async ({ file, isImage }) => {
             const r = await uploadOne(file, isImage);
-            const fileInfo = {
+            return {
                 url: r.secure_url,
                 publicId: r.public_id,
                 resourceType: r.resource_type,
@@ -42,19 +41,19 @@ const uploadFiles = async (items) => {
                 width: r.width,
                 height: r.height
             };
-            uploaded.push(fileInfo);
-            return fileInfo;
-        });
+        })
+    );
 
-        const results = await Promise.all(uploadPromises);
-        return results;
-    } catch (error) {
-        // Neu 1 file fail, Promise.all reject va don dep toan bo file da kip upload thanh cong
-        if (uploaded.length > 0) {
-            await deleteFiles(uploaded);
-        }
-        throw error;
+    const uploaded = results
+        .filter((result) => result.status === 'fulfilled')
+        .map((result) => result.value);
+    const failed = results.find((result) => result.status === 'rejected');
+    if (failed) {
+        await deleteFiles(uploaded);
+        throw failed.reason;
     }
+
+    return uploaded;
 };
 
 module.exports = { uploadFiles, deleteFiles, uploadOne };

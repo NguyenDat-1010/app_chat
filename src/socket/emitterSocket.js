@@ -30,7 +30,7 @@ const emitmemberAdd = (io, newmemberIds, conversationId, updatedConversation) =>
         newmemberIds,
         conversation: updatedConversation
     });
-    newmemberIdsmemberIds.forEach((id) => {
+    newmemberIds.forEach((id) => {
         io.to(`user:${id}`).emit('group:created', updatedConversation);
     });
 

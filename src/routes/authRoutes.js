@@ -1,6 +1,7 @@
 const express = require('express');
-const { register, login, logout, refresh } = require('../controllers/authController');
+const { register, login, googleLogin, logout, refresh } = require('../controllers/authController');
 const authMiddleware = require('../middleware/authMiddleware');
+const { loginLimiter, authLimiter } = require('../middleware/rateLimitMiddleware');
 
 
 const routes = express.Router();
@@ -12,9 +13,10 @@ routes.get('/test_auth', authMiddleware, (req, res) => {
     });
 });
 
-routes.post('/register', register);
-routes.post('/login', login);
-routes.post('/refresh', refresh);
+routes.post('/register', authLimiter, register);
+routes.post('/login', loginLimiter, login);
+routes.post('/google', authLimiter, googleLogin);
+routes.post('/refresh', authLimiter, refresh);
 routes.post('/logout', logout);
 
 

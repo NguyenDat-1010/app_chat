@@ -19,7 +19,10 @@ const { onlineUsers, broadcastStatus } = require('./onlineUsers.js');
 
 function initSocket(httpServer) {
   const io = new Server(httpServer, {
-    cors: { origin: process.env.CLIENT_URL || '*' }
+    cors: {
+      origin: process.env.CLIENT_URL || 'http://localhost:5173',
+      credentials: true
+    }
   });
 
   //kiem tra xác thực
